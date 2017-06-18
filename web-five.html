@@ -1,0 +1,162 @@
+<!DOCTYPE HTML>
+<html>
+
+<body>
+
+    <canvas id="myCanvas" width="1000" height="1000" style="border:0px solid #666;">
+        Your browser does not support the canvas element.
+    </canvas>
+    <div id='result'></div>
+    <script type="text/javascript" src="./five_.js"></script>
+    <script type="text/javascript">
+        function Table(n, canvasID, isInner = false) {
+
+            this.data = [];
+            this.state = 0 //0 谁都没赢 1机器赢 -1我赢
+            m = isInner ? n - 1 : n;
+            for (var i = 0; i < m; i++) {
+                this.data.push([]);
+                for (var j = 0; j < m; j++) {
+                    this.data[i][j] = 0;
+                }
+            }
+
+            this.canvas = document.getElementById(canvasID);
+            this.isInner = isInner;
+            this.ctx = this.canvas.getContext("2d");
+            this.scale = n;
+
+            this.drawTable = function () {
+                this.blank = 15;
+                width = parseInt(this.canvas.width) - this.blank * 2;
+                height = parseInt(this.canvas.height) - this.blank * 2;
+                this.DomX = this.blank;
+                this.DomY = this.blank;
+                this.perH = height / (this.scale - 1);
+                for (var i = 0; i < this.scale; i++) {
+                    startPx = i * this.perH + this.DomX;
+                    this.ctx.moveTo(this.DomX, startPx);
+                    this.ctx.lineTo(width + this.blank, startPx);
+                    this.ctx.stroke();
+                }
+                this.perW = width / (this.scale - 1);
+                for (var i = 0; i < this.scale; i++) {
+                    startPx = i * this.perW + this.DomY;
+                    this.ctx.moveTo(startPx, this.DomY);
+                    this.ctx.lineTo(startPx, height + this.blank);
+                    this.ctx.stroke();
+                }
+            }
+
+            this.posToPx = function (x, y, isInner) {
+                firstX = this.DomX;
+                firstY = this.DomY;
+                if (isInner) {
+                    firstX += this.perW / 2;
+                    firstY += this.perH / 2;
+                }
+                X = (x - 1) * this.perW + firstX;
+                Y = (y - 1) * this.perH + firstY;
+
+                return { "x": Y, "y": X };
+
+            }
+            this[true] = {}
+            this[false] = {}
+            this.drawDot = function (x, y, r, isBlack, isInner = false) {
+                // x y 是数组位置,而不是像素位置
+                this.ctx.fillStyle = (isBlack ? "#000" : "#999");
+                dom = this.posToPx(x, y, isInner);
+                this.ctx.beginPath();
+                if (!isBlack && this.preDom) {
+                    this.ctx.arc(this.preDom.x, this.preDom.y, r, 0, Math.PI * 2, true);
+                }
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                this.ctx.beginPath();
+                this.ctx.arc(dom.x, dom.y, r, 0, Math.PI * 2, true);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                if (!isBlack) {
+                    this.ctx.beginPath();
+                    this.ctx.fillStyle = "#c90"
+                    this.ctx.arc(dom.x, dom.y, r - 5, 0, Math.PI * 2, true);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                    this.preDom = dom;
+                }
+
+            }
+
+            this.calClickPos = function (relativePx, isInner = false) {
+                Px = relativePx.x - this.blank;
+                Py = relativePx.y - this.blank;
+                if (Px < 0) Px = 0
+                if (Py < 0) Py = 0
+                if (isInner) {
+                    y = Math.ceil(Px / this.perW);
+                    x = Math.ceil(Py / this.perH);
+                } else {
+                    y = Math.round(Px / this.perW + 1.3);//四舍五入 所以不能加1.4
+                    x = Math.round(Py / this.perH + 1.3);
+                }
+                return { x: x, y: y };
+
+            }
+            this.clickFlage = false;
+            this.canvas.onclick = function (e) {
+                //console.log(this.canvas.offsetTop+" "+this.canvas.offsetLeft)
+
+                if (this.clickFlage||this.state!=0)
+                    return;
+                this.clickFlage = true;
+                var x = parseInt(e.clientX) - parseInt(this.canvas.offsetLeft)
+                var y = parseInt(e.clientY) - parseInt(this.canvas.offsetTop)
+                console.log(x + " " + y);
+                var pos = this.calClickPos({ x: x, y: y }, this.isInner);
+                if (this.data[pos.x - 1][pos.y - 1] != 0) {
+                    this.clickFlage = false;
+                    return;
+                }
+                this.drawDot(pos.x, pos.y, 10, true, this.isInner)
+                // console.log(pos.x, pos.y)
+                this.data[pos.x - 1][pos.y - 1] = -1;
+                this.state = isWin(this.data, pos, -1) ? -1 : 0;
+
+                var b = { x: pos.x - 1, y: pos.y - 1 }
+                if (isWin(this.data, b, -1)) {
+                    this.state = -1;
+                }
+
+            }.bind(this)
+            setInterval(function () {
+                if (this.state == -1) {
+                    alert("you win");
+                    this.state = 2;
+                    return;
+                }
+                if (!this.clickFlage||this.state!=0)
+                    return;
+                pos = MaxminS(this.data, 3, 1);
+                console.log(pos.pos);
+                pos = pos.pos;
+                this.drawDot(pos.x + 1, pos.y + 1, 10, false, this.isInner)
+                this.data[pos.x][pos.y] = 1;
+                this.clickFlage = false;
+                if (isWin(this.data, pos, 1)) {
+                    this.state = 1;
+                    alert("you lose");
+                }
+            }.bind(this), 500)
+        }
+
+        p = new Table(15, "myCanvas", false);
+
+        p.drawTable();
+    </script>
+
+</body>
+
+</html>
